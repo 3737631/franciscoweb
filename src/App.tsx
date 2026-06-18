@@ -1,64 +1,104 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { BRAND, products, type Product, categories, reviews } from './data'
+import { supabase } from './supabase'
 import './App.css'
 
-const { format } = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' })
-
-function useIntersection(ref: React.RefObject<HTMLElement | null>, threshold = 0.1) {
-  const [visible, setVisible] = useState(false)
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const observer = new IntersectionObserver(([entry]) => { if (entry.isIntersecting) setVisible(true) }, { threshold })
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [ref, threshold])
-  return visible
+const RESTAURANT = {
+  name: "Luigipizza",
+  tagline: "Pizza artesanal en San Juan de Aznalfarache",
+  description: "Masa de elaboración propia, fermentación cuidada y productos de máxima calidad para ofrecer una auténtica experiencia italiana al mejor precio.",
+  phone: "624 80 87 69",
+  address: "Calle Concordia, Local 5, 41920 San Juan de Aznalfarache, Sevilla",
+  addressShort: "C. Concordia, Local 5",
+  city: "San Juan de Aznalfarache, Sevilla",
+  hours: "Abierto en horario de tarde-noche",
+  location: "Junto al estanco",
+  reviewsTotal: 200,
+  reviewScore: 4.6,
+  mapSrc: "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3169.5!2d-6.027!3d37.416!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0xd123%3A0x456!2sCalle%20Concordia%2C%20San%20Juan%20de%20Aznalfarache!5e0!3m2!1ses!2ses!4v1",
 }
 
-function CartIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
-      <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
-    </svg>
-  )
+const CATEGORIES = [
+  { id: "clasicas", label: "Pizzas Clásicas" },
+  { id: "especiales", label: "Pizzas Especiales" },
+  { id: "entrantes", label: "Entrantes" },
+  { id: "bebidas", label: "Bebidas" },
+]
+
+const MENU_ITEMS: Record<string, { name: string; desc: string; price: string }[]> = {
+  clasicas: [
+    { name: "Margarita", desc: "Tomate, mozzarella fresca, albahaca", price: "8,50" },
+    { name: "Barbacoa", desc: "Carne de ternera, bacon, cheddar, cebolla", price: "10,50" },
+    { name: "Cuatro Quesos", desc: "Mozzarella, gorgonzola, parmesano, emmental", price: "10,00" },
+    { name: "Prosciutto", desc: "Jamón serrano, rúcula, parmesano en lascas", price: "11,00" },
+    { name: "Pepperoni", desc: "Pepperoni, mozzarella, orégano", price: "9,50" },
+    { name: "Napolitana", desc: "Anchoas, alcaparras, aceitunas, orégano", price: "9,50" },
+  ],
+  especiales: [
+    { name: "Luigipizza", desc: "Nuestra especialidad de la casa con ingredient secretos", price: "12,00" },
+    { name: "Caprichosa", desc: "Jamón york, champiñones, alcachofa, huevo", price: "10,50" },
+    { name: "Diavola", desc: "Salami picante, jalapeños, cebolla roja", price: "11,00" },
+    { name: "Trufa y Brie", desc: "Crema de trufa, queso brie, rúcula, nueces", price: "12,50" },
+    { name: "Carbonara", desc: "Crema de queso, bacon, yema de huevo, parmesano", price: "11,50" },
+  ],
+  entrantes: [
+    { name: "Bruschetta Clásica", desc: "Pan tostado, tomate, ajo, albahaca, aceite de oliva", price: "5,00" },
+    { name: "Aros de Cebolla", desc: "Aros de cebolla empanizados con salsa especial", price: "6,00" },
+    { name: "Patatas Bravas", desc: "Patatas crujientes con salsa brava y alioli", price: "5,50" },
+    { name: "Tabla de Quesos", desc: "Selección de quesos italianos con frutos secos", price: "9,00" },
+    { name: "Ensalada César", desc: "Lechuga, pollo, croutons, parmesano, salsa césar", price: "7,50" },
+  ],
+  bebidas: [
+    { name: "Coca-Cola / Nestea", desc: "Refresco de cola o té con limón", price: "2,00" },
+    { name: "Cerveza Caña", desc: "Cerveza nacional bien fría", price: "2,50" },
+    { name: "Cerveza Italiana", desc: "Peroni o Moretti importada", price: "3,50" },
+    { name: "Agua Mineral", desc: "Agua natural o con gas", price: "1,50" },
+    { name: "Vino Tinto (Copa)", desc: "Selección de la casa", price: "3,00" },
+    { name: "Tinto de Verano", desc: "Refrescante combinación de vino y limón", price: "2,50" },
+  ],
 }
 
-function SearchIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
-    </svg>
-  )
-}
+const GALLERY_IMAGES = [
+  { src: "https://res.cloudinary.com/dmuxgamms/image/upload/v1781783751/unnamed_b0jbej.webp", alt: "Fachada de Luigipizza" },
+  { src: "https://res.cloudinary.com/dmuxgamms/image/upload/v1781783787/unnamed_1_mkvhfc.webp", alt: "Horno y preparación" },
+  { src: "https://res.cloudinary.com/dmuxgamms/image/upload/v1781783802/unnamed_2_emmq6t.webp", alt: "Pizza artesanal" },
+  { src: "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800&q=80", alt: "Pizza Margarita" },
+  { src: "https://images.unsplash.com/photo-1594007654729-407eedc4be65?w=800&q=80", alt: "Pizza recién horneada" },
+  { src: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&q=80", alt: "Interior del local" },
+  { src: "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=800&q=80", alt: "Pizza Cuatro Quesos" },
+  { src: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&q=80", alt: "Equipo en cocina" },
+]
 
-function UserIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/>
-    </svg>
-  )
-}
+const REVIEWS = [
+  { name: "María G.", text: "Es una brutalidad las pizzas. Sin duda creo que es de las mejores pizzas caseras que hemos probado.", rating: 5 },
+  { name: "Antonio R.", text: "La salsa y el queso están riquísimos, y la masa tiene el equilibrio perfecto entre crujiente y esponjosa.", rating: 5 },
+  { name: "Laura M.", text: "Pedimos para llevar y llegó todo caliente y perfecto. Sin duda repetiremos.", rating: 5 },
+  { name: "Carlos L.", text: "La mejor pizza de San Juan, masa artesanal de verdad. El trato inmejorable.", rating: 5 },
+  { name: "Ana P.", text: "Precio calidad inmejorable. La Luigipizza es espectacular, recomendada 100%.", rating: 5 },
+  { name: "Javier S.", text: "Auténtico sabor italiano. Se nota que la masa es artesanal y los ingredientes de calidad.", rating: 4 },
+]
 
-interface CartItem {
-  product: Product
-  size: string
-  color: string
-  quantity: number
-}
+const FEATURES = [
+  { title: "Masa artesanal propia", desc: "Elaborada diariamente siguiendo procesos de fermentación que potencian el sabor y la textura." },
+  { title: "Ingredientes de calidad", desc: "Utilizamos productos seleccionados para garantizar el mejor resultado en cada pizza." },
+  { title: "Excelente relación calidad-precio", desc: "Pizzas artesanales a precios accesibles." },
+  { title: "Valoraciones destacadas", desc: "Más de 200 reseñas con una valoración media cercana a 4,6/5." },
+  { title: "Pedidos para llevar", desc: "Pide por teléfono y recoge tu pizza recién hecha." },
+]
 
-function Navbar({ cartCount, onCartOpen }: { cartCount: number; onCartOpen: () => void }) {
+function Navbar() {
   const [scrolled, setScrolled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
-  const [megaOpen, setMegaOpen] = useState(false)
-  const [mobileMega, setMobileMega] = useState<string | null>(null)
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 60)
     window.addEventListener("scroll", onScroll, { passive: true })
     return () => window.removeEventListener("scroll", onScroll)
   }, [])
+
+  const scrollTo = (id: string) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" })
+    setMenuOpen(false)
+  }
 
   return (
     <>
@@ -67,238 +107,145 @@ function Navbar({ cartCount, onCartOpen }: { cartCount: number; onCartOpen: () =
           <button className="hamburger" onClick={() => setMenuOpen(true)} aria-label="Menú">
             <span /><span /><span />
           </button>
-
-          <a href="#" className="nav-logo">{BRAND.logo}</a>
-
-          <div className="nav-center">
-            <div className="nav-links" onMouseEnter={() => setMegaOpen(true)} onMouseLeave={() => setMegaOpen(false)}>
-              <button className="nav-link">SHOP</button>
-              <button className="nav-link">Mujer</button>
-              <button className="nav-link">Colecciones</button>
-              <button className="nav-link">Tiendas</button>
-            </div>
-          </div>
-
-          <div className="nav-actions">
-            <button className="nav-action" aria-label="Buscar"><SearchIcon /></button>
-            <button className="nav-action" aria-label="Cuenta"><UserIcon /></button>
-            <button className="nav-action cart-btn" onClick={onCartOpen} aria-label="Carrito">
-              <CartIcon />
-              {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
-            </button>
-          </div>
-        </div>
-
-        <div className={`mega-menu ${megaOpen ? "open" : ""}`}
-          onMouseEnter={() => setMegaOpen(true)}
-          onMouseLeave={() => setMegaOpen(false)}
-        >
-          <div className="mega-inner">
-            {categories.map((cat, i) => (
-              <div key={i} className="mega-col">
-                <a href={cat.link || "#"} className="mega-title">{cat.name}</a>
-                {cat.subcategories && (
-                  <div className="mega-subs">
-                    {cat.subcategories.map((sub, j) => (
-                      <a key={j} href="#" className="mega-sub">{sub}</a>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
+          <a href="#" className="nav-logo" onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: "smooth" }) }}>
+            {RESTAURANT.name}
+          </a>
+          <div className="nav-links">
+            <button className="nav-link" onClick={() => scrollTo("carta")}>Carta</button>
+            <button className="nav-link" onClick={() => scrollTo("nosotros")}>Nosotros</button>
+            <button className="nav-link" onClick={() => scrollTo("reservas")}>Reservas</button>
+            <button className="nav-link" onClick={() => scrollTo("contacto")}>Contacto</button>
+            <a href={`tel:+34${RESTAURANT.phone.replace(/\s/g,"")}`} className="btn-gold nav-btn-reservar">Reservar</a>
           </div>
         </div>
       </nav>
-
       <div className={`mobile-menu ${menuOpen ? "open" : ""}`}>
         <div className="mobile-header">
           <button className="mobile-close" onClick={() => setMenuOpen(false)}>✕</button>
         </div>
         <div className="mobile-body">
-          {categories.map((cat, i) => (
-            <div key={i} className="mobile-cat">
-              <button
-                className="mobile-cat-title"
-                onClick={() => setMobileMega(mobileMega === cat.name ? null : cat.name)}
-              >
-                {cat.name}
-                {cat.subcategories && <span className="mobile-arrow">{mobileMega === cat.name ? '−' : '+'}</span>}
-              </button>
-              {cat.subcategories && mobileMega === cat.name && (
-                <div className="mobile-subs">
-                  {cat.subcategories.map((sub, j) => (
-                    <a key={j} href="#" className="mobile-sub">{sub}</a>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-          <a href="#" className="mobile-cat-title">Mujer</a>
-          <a href="#" className="mobile-cat-title">Colecciones</a>
-          <a href="#" className="mobile-cat-title">Tiendas</a>
+          <button className="mobile-cat-title" onClick={() => scrollTo("carta")}>Carta</button>
+          <button className="mobile-cat-title" onClick={() => scrollTo("nosotros")}>Nosotros</button>
+          <button className="mobile-cat-title" onClick={() => scrollTo("reservas")}>Reservas</button>
+          <button className="mobile-cat-title" onClick={() => scrollTo("contacto")}>Contacto</button>
+          <a href={`tel:+34${RESTAURANT.phone.replace(/\s/g,"")}`} className="mobile-cat-title mobile-call">📞 Reservar</a>
         </div>
       </div>
-
       {menuOpen && <div className="mobile-overlay" onClick={() => setMenuOpen(false)} />}
     </>
   )
 }
 
 function Hero() {
-  const ref = useRef<HTMLElement>(null)
-  const visible = useIntersection(ref, 0.1)
+  const [visible, setVisible] = useState(false)
+  useEffect(() => { setVisible(true) }, [])
 
   return (
-    <section className="hero" ref={ref}>
+    <section className="hero">
       <div className="hero-bg">
-        <video autoPlay muted loop playsInline poster="https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=1600&q=80">
-          <source src="https://cdn.shopify.com/videos/c/vp/abcd1234.mp4" type="video/mp4" />
-        </video>
+        <img src="https://images.unsplash.com/photo-1513104890138-7c749659a591?w=1600&q=80" alt="Pizza artesanal" />
       </div>
       <div className="hero-overlay" />
-      <div className={`hero-content ${visible ? "fade-up" : ""}`}>
-        <p className="hero-suptitle">{BRAND.tagline}</p>
-        <h1 className="hero-title">{BRAND.name}</h1>
-        <p className="hero-tagline">NUEVA COLECCIÓN VERANO 26</p>
-        <div className="hero-actions">
-          <button className="btn-primary" onClick={() => document.getElementById("productos")?.scrollIntoView({ behavior: "smooth" })}>
-            COMPRAR AHORA
-          </button>
-          <button className="btn-secondary" onClick={() => document.getElementById("colecciones")?.scrollIntoView({ behavior: "smooth" })}>
-            VER COLECCIÓN
-          </button>
-        </div>
+      <div className="hero-content">
+        {visible && (
+          <>
+            <p className="hero-eyebrow fade-up" style={{animationDelay:"0.2s"}}>{RESTAURANT.city}</p>
+            <h1 className="hero-title fade-up" style={{animationDelay:"0.4s"}}>
+              {RESTAURANT.name} <em>Pizza</em>
+            </h1>
+            <p className="hero-subtitle fade-up" style={{animationDelay:"0.6s"}}>{RESTAURANT.tagline}</p>
+            <div className="hero-actions fade-up" style={{animationDelay:"0.8s"}}>
+              <button className="btn-outline" onClick={() => document.getElementById("carta")?.scrollIntoView({ behavior: "smooth" })}>Ver Carta</button>
+              <a href={`tel:+34${RESTAURANT.phone.replace(/\s/g,"")}`} className="btn-gold">Reservar mesa</a>
+              <a href={`tel:+34${RESTAURANT.phone.replace(/\s/g,"")}`} className="btn-ghost">Llamar</a>
+              <a href="https://maps.google.com/?q=Luigipizza+San+Juan+de+Aznalfarache" target="_blank" rel="noopener noreferrer" className="btn-ghost">Cómo llegar</a>
+            </div>
+          </>
+        )}
       </div>
-      <div className="hero-scroll">
-        <span>DESCUBRE</span>
+      <button className="hero-scroll" onClick={() => document.getElementById("nosotros")?.scrollIntoView({ behavior: "smooth" })}>
+        <span>Descubrir</span>
         <div className="scroll-arrow" />
+      </button>
+    </section>
+  )
+}
+
+function About() {
+  const ref = useRef<HTMLElement>(null)
+  const [visible, setVisible] = useState(false)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const observer = new IntersectionObserver(([entry]) => { if (entry.isIntersecting) setVisible(true) }, { threshold: 0.1 })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  return (
+    <section id="nosotros" className="section section-card" ref={ref}>
+      <div className={`container ${visible ? "fade-in" : ""}`}>
+        <p className="eyebrow">Nuestra filosofía</p>
+        <h2 className="section-title">Pasión por la pizza artesanal</h2>
+        <div className="about-grid">
+          <div className="about-text">
+            <p>En Luigipizza elaboramos cada pizza con masa artesanal de producción propia y fermentación controlada para conseguir una textura crujiente por fuera y esponjosa por dentro.</p>
+            <p>Seleccionamos ingredientes de calidad para que cada pizza conserve el auténtico sabor que nos ha convertido en una de las pizzerías mejor valoradas de la zona.</p>
+            <blockquote>"Masa fresca cada día, ingredientes seleccionados y mucho cariño. Esa es nuestra receta."</blockquote>
+          </div>
+          <div className="about-features">
+            {FEATURES.map((f, i) => (
+              <div key={i} className="feature-card">
+                <h4 className="feature-card-title">{f.title}</h4>
+                <p className="feature-card-desc">{f.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </section>
   )
 }
 
-function ProductCard({ product, onAddToCart }: { product: Product; onAddToCart: (p: Product, size: string, color: string) => void }) {
-  const [selectedSize, setSelectedSize] = useState("")
-  const [selectedColor, setSelectedColor] = useState(product.colors[0]?.name || "")
-  const [imgIndex, setImgIndex] = useState(0)
-  const [adding, setAdding] = useState(false)
+function Menu() {
+  const [category, setCategory] = useState("clasicas")
+  const ref = useRef<HTMLElement>(null)
+  const [visible, setVisible] = useState(false)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const observer = new IntersectionObserver(([entry]) => { if (entry.isIntersecting) setVisible(true) }, { threshold: 0.1 })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
 
-  const handleAdd = (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (!selectedSize && product.sizes[0] !== "One Size") return
-    const size = selectedSize || product.sizes[0]
-    setAdding(true)
-    onAddToCart(product, size, selectedColor)
-    setTimeout(() => setAdding(false), 600)
-  }
+  const items = MENU_ITEMS[category] || []
 
   return (
-    <div
-      className="product-card"
-      onMouseEnter={() => setImgIndex(1)}
-      onMouseLeave={() => setImgIndex(0)}
-    >
-      <div className="product-image-wrap">
-        <img
-          src={product.images[imgIndex]}
-          alt={product.name}
-          className="product-image"
-          loading="lazy"
-        />
-        {product.badge && (
-          <span className="product-badge" style={product.badgeColor ? { background: product.badgeColor } : undefined}>
-            {product.badge}
-          </span>
-        )}
-        <div className="product-actions">
-          <button
-            className={`product-add ${adding ? "added" : ""}`}
-            onClick={handleAdd}
-            disabled={!selectedSize && product.sizes[0] !== "One Size"}
-            title={!selectedSize && product.sizes[0] !== "One Size" ? "Selecciona una talla" : "Añadir al carrito"}
-          >
-            {adding ? "✓" : "AÑADIR"}
-          </button>
-        </div>
-      </div>
-
-      {product.colors.length > 1 && (
-        <div className="product-colors">
-          {product.colors.map((c) => (
+    <section id="carta" className="section" ref={ref}>
+      <div className={`container ${visible ? "fade-in" : ""}`}>
+        <p className="eyebrow">Nuestra carta</p>
+        <h2 className="section-title">Descubre nuestras pizzas</h2>
+        <div className="menu-tabs">
+          {CATEGORIES.map((cat) => (
             <button
-              key={c.name}
-              className={`color-dot ${selectedColor === c.name ? "active" : ""}`}
-              style={{ background: c.hex }}
-              onClick={() => setSelectedColor(c.name)}
-              title={c.name}
-            />
-          ))}
-        </div>
-      )}
-
-      <div className="product-info">
-        <h3 className="product-name">{product.name}</h3>
-        <p className="product-price">{format(product.price)}</p>
-        <div className="product-sizes">
-          {product.sizes.map((s) => (
-            <button
-              key={s}
-              className={`size-btn ${selectedSize === s ? "active" : ""}`}
-              onClick={() => setSelectedSize(s)}
+              key={cat.id}
+              className={`menu-tab ${category === cat.id ? "active" : ""}`}
+              onClick={() => setCategory(cat.id)}
             >
-              {s}
+              {cat.label}
             </button>
           ))}
         </div>
-      </div>
-    </div>
-  )
-}
-
-function ProductGrid({ title, products: prods, onAddToCart }: { title: string; products: Product[]; onAddToCart: (p: Product, size: string, color: string) => void }) {
-  const ref = useRef<HTMLElement>(null)
-  const visible = useIntersection(ref)
-
-  return (
-    <section id="productos" className="section" ref={ref}>
-      <div className={`section-content ${visible ? "fade-up" : ""}`}>
-        <h2 className="section-title">{title}</h2>
-        <div className="product-grid">
-          {prods.map((p) => (
-            <ProductCard key={p.id} product={p} onAddToCart={onAddToCart} />
-          ))}
-        </div>
-      </div>
-    </section>
-  )
-}
-
-function ProductCarousel({ title, products: prods, onAddToCart }: { title: string; products: Product[]; onAddToCart: (p: Product, size: string, color: string) => void }) {
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const ref = useRef<HTMLElement>(null)
-  const visible = useIntersection(ref)
-
-  const scroll = (dir: "left" | "right") => {
-    if (!scrollRef.current) return
-    const amount = scrollRef.current.clientWidth * 0.8
-    scrollRef.current.scrollBy({ left: dir === "left" ? -amount : amount, behavior: "smooth" })
-  }
-
-  return (
-    <section id="colecciones" className="section section-dark" ref={ref}>
-      <div className={`section-content ${visible ? "fade-up" : ""}`}>
-        <div className="carousel-header">
-          <h2 className="section-title">{title}</h2>
-          <div className="carousel-arrows">
-            <button onClick={() => scroll("left")} aria-label="Anterior">‹</button>
-            <button onClick={() => scroll("right")} aria-label="Siguiente">›</button>
-          </div>
-        </div>
-        <div className="carousel-track" ref={scrollRef}>
-          {prods.concat(prods).map((p, i) => (
-            <div key={i} className="carousel-item">
-              <ProductCard product={p} onAddToCart={onAddToCart} />
+        <div className="menu-list" key={category}>
+          {items.map((item, i) => (
+            <div className="menu-item" style={{animationDelay:`${i*0.1}s`}} key={item.name}>
+              <div className="menu-item-header">
+                <span className="menu-item-name">{item.name}</span>
+                <span className="menu-item-dots"></span>
+                <span className="menu-item-price">{item.price}€</span>
+              </div>
+              <p className="menu-item-desc">{item.desc}</p>
             </div>
           ))}
         </div>
@@ -307,43 +254,96 @@ function ProductCarousel({ title, products: prods, onAddToCart }: { title: strin
   )
 }
 
-function Features() {
-  const ref = useRef<HTMLElement>(null)
-  const visible = useIntersection(ref)
-  const features = [
-    { icon: "⟡", title: "ENVÍO GRATIS", desc: "Pedidos superiores a 100€" },
-    { icon: "⟡", title: "DEVOLUCIONES", desc: "30 días para cambiar de opinión" },
-    { icon: "⟡", title: "PAGO SEGURO", desc: "100% protegido" },
-    { icon: "⟡", title: "ATENCIÓN 24/7", desc: "Soporte al cliente online" },
-  ]
+function Gallery() {
+  const [lightbox, setLightbox] = useState<number | null>(null)
+  const refs = useRef<(HTMLDivElement | null)[]>([])
+
+  const setRef = useCallback((el: HTMLDivElement | null, i: number) => {
+    refs.current[i] = el
+  }, [])
+
+  useEffect(() => {
+    const currentRefs = refs.current
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const img = entry.target.querySelector(".gallery-img")
+          if (img) {
+            img.classList.toggle("visible", entry.isIntersecting)
+          }
+        })
+      },
+      { threshold: 0.1 }
+    )
+    currentRefs.forEach((ref) => { if (ref) observer.observe(ref) })
+    return () => {
+      currentRefs.forEach((ref) => { if (ref) observer.unobserve(ref) })
+      observer.disconnect()
+    }
+  }, [])
+
+  useEffect(() => {
+    if (lightbox === null) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLightbox(null)
+      if (e.key === "ArrowLeft") setLightbox((prev) => prev !== null ? (prev - 1 + GALLERY_IMAGES.length) % GALLERY_IMAGES.length : null)
+      if (e.key === "ArrowRight") setLightbox((prev) => prev !== null ? (prev + 1) % GALLERY_IMAGES.length : null)
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [lightbox])
 
   return (
-    <section className="features-bar" ref={ref}>
-      <div className={`features-grid ${visible ? "fade-up" : ""}`}>
-        {features.map((f, i) => (
-          <div key={i} className="feature-item">
-            <span className="feature-icon">{f.icon}</span>
-            <div>
-              <h4 className="feature-title">{f.title}</h4>
-              <p className="feature-desc">{f.desc}</p>
+    <section className="section">
+      <div className="container">
+        <p className="eyebrow">Galería</p>
+        <h2 className="section-title">Momentos Luigipizza</h2>
+        <div className="gallery-grid">
+          {GALLERY_IMAGES.map((img, i) => (
+            <div
+              key={i}
+              className={`gallery-card ${i % 2 === 0 ? "slide-left" : "slide-right"}`}
+              ref={(el) => setRef(el, i)}
+              onClick={() => setLightbox(i)}
+            >
+              <img src={img.src} alt={img.alt} className="gallery-img" loading="lazy" />
+              <div className="gallery-overlay">
+                <span>Ampliar</span>
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
+      {lightbox !== null && (
+        <div className="lightbox" onClick={() => setLightbox(null)}>
+          <button className="lightbox-close" onClick={() => setLightbox(null)}>✕</button>
+          <button className="lightbox-arrow lightbox-prev" onClick={(e) => { e.stopPropagation(); setLightbox((lightbox - 1 + GALLERY_IMAGES.length) % GALLERY_IMAGES.length) }}>‹</button>
+          <img src={GALLERY_IMAGES[lightbox].src} alt={GALLERY_IMAGES[lightbox].alt} className="lightbox-img" onClick={(e) => e.stopPropagation()} />
+          <button className="lightbox-arrow lightbox-next" onClick={(e) => { e.stopPropagation(); setLightbox((lightbox + 1) % GALLERY_IMAGES.length) }}>›</button>
+        </div>
+      )}
     </section>
   )
 }
 
 function Reviews() {
   const ref = useRef<HTMLElement>(null)
-  const visible = useIntersection(ref)
+  const [visible, setVisible] = useState(false)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const observer = new IntersectionObserver(([entry]) => { if (entry.isIntersecting) setVisible(true) }, { threshold: 0.1 })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
 
   return (
-    <section className="section" ref={ref}>
-      <div className={`section-content ${visible ? "fade-up" : ""}`}>
-        <h2 className="section-title">OPINIONES</h2>
+    <section className="section section-card" ref={ref}>
+      <div className={`container ${visible ? "fade-in" : ""}`}>
+        <p className="eyebrow">Opiniones</p>
+        <div className="reviews-badge">{RESTAURANT.reviewScore.toFixed(1).replace(".",",")} · Más de {RESTAURANT.reviewsTotal} reseñas</div>
         <div className="reviews-grid">
-          {reviews.map((r, i) => (
+          {REVIEWS.map((r, i) => (
             <div key={i} className="review-card">
               <div className="review-stars">
                 {Array.from({ length: 5 }, (_, j) => (
@@ -360,26 +360,146 @@ function Reviews() {
   )
 }
 
-function Newsletter() {
-  const [email, setEmail] = useState("")
-  const [sent, setSent] = useState(false)
+function Reservations() {
+  const [date, setDate] = useState("")
+  const [time, setTime] = useState("")
+  const [name, setName] = useState("")
+  const [phone, setPhone] = useState("")
+  const [persons, setPersons] = useState("")
+  const [note, setNote] = useState("")
+  const [done, setDone] = useState<{date:string;time:string;name:string;phone:string;persons:string;note:string}|null>(null)
+  const [booked, setBooked] = useState<string[]>([])
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState("")
+  const ref = useRef<HTMLElement>(null)
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const observer = new IntersectionObserver(([entry]) => { if (entry.isIntersecting) setVisible(true) }, { threshold: 0.1 })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  const today = new Date().toISOString().slice(0, 10)
+  const now = new Date()
+  const isPast = (t: string) => date === today && t < `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`
+  const isBooked = (t: string) => booked.includes(t) || isPast(t)
+
+  useEffect(() => {
+    if (!date) { setBooked([]); return }
+    const channel = supabase.channel("slots-"+date)
+      .on("postgres_changes", {event:"*", schema:"public", table:"slots", filter:`date=eq.${date}`}, () => {
+        supabase.from("slots").select("time").eq("date",date).then(({data}) => setBooked((data||[]).map(r=>r.time)))
+      }).subscribe()
+    supabase.from("slots").select("time").eq("date",date).then(({data}) => setBooked((data||[]).map(r=>r.time)))
+    return () => { channel.unsubscribe() }
+  }, [date])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSending(true)
+    setError("")
+    const {error: insertErr} = await supabase.from("slots").insert([
+      {date, time, name, phone, persons, note, created_at: new Date().toISOString()}
+    ])
+    if (insertErr) {
+      setSending(false)
+      if (insertErr.code === "23505") setError("Este horario acaba de ser reservado por otra persona.")
+      else setError(insertErr.message)
+      return
+    }
+    setSending(false)
+    setDone({date, time, name, phone, persons, note})
+  }
+
+  const timeSlots = [
+    { label: "Tarde", slots: ["20:00","20:30","21:00","21:30","22:00","22:30","23:00","23:30"] },
+    { label: "Noche", slots: ["00:00","00:30","01:00","01:30"] },
+  ]
+
+  if (done) {
+    return (
+      <section id="reservas" className="section section-card" ref={ref}>
+        <div className={`container-narrow ${visible ? "fade-in" : ""}`}>
+          <div className="confirm-icon">✓</div>
+          <h2 className="section-title">Reserva confirmada</h2>
+          <div className="confirm-box">
+            <div className="confirm-row"><span className="confirm-label">Fecha</span><span className="confirm-value">{done.date}</span></div>
+            <div className="confirm-row"><span className="confirm-label">Hora</span><span className="confirm-value">{done.time}</span></div>
+            <div className="confirm-row"><span className="confirm-label">Personas</span><span className="confirm-value">{done.persons}</span></div>
+            <div className="confirm-row"><span className="confirm-label">Nombre</span><span className="confirm-value">{done.name}</span></div>
+            <div className="confirm-row"><span className="confirm-label">Teléfono</span><span className="confirm-value">{done.phone}</span></div>
+            {done.note && <div className="confirm-row"><span className="confirm-label">Comentarios</span><span className="confirm-value">{done.note}</span></div>}
+          </div>
+          <a href={`tel:+34${RESTAURANT.phone.replace(/\s/g,"")}`} className="btn-gold confirm-call">Llamar · {RESTAURANT.phone}</a>
+        </div>
+      </section>
+    )
+  }
+
+  const allDisabled = !date || !time || !name || !phone || !persons || isBooked(time) || sending
 
   return (
-    <section className="section section-dark newsletter">
-      <div className="section-content">
-        <h2 className="section-title">NEWSLETTER</h2>
-        <p className="newsletter-desc">Suscríbete para recibir novedades, lanzamientos y ofertas exclusivas.</p>
-        <form className="newsletter-form" onSubmit={(e) => { e.preventDefault(); if (email) setSent(true) }}>
+    <section id="reservas" className="section section-card" ref={ref}>
+      <div className={`container-narrow ${visible ? "fade-in" : ""}`}>
+        <p className="eyebrow">Reservas</p>
+        <h2 className="section-title">Reserva tu mesa</h2>
+        <form className="reservas-form" onSubmit={handleSubmit}>
           <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="tu@email.com"
+            type="date"
+            value={date}
             required
-            className="newsletter-input"
+            onChange={(e) => {
+              const v = e.target.value
+              if (v < today) return
+              setDate(v)
+              setTime("")
+            }}
           />
-          <button type="submit" className="btn-primary">
-            {sent ? "✓ SUSCRITO" : "SUSCRIBIRSE"}
+          <select value={time} onChange={(e) => setTime(e.target.value)} required>
+            <option value="">Seleccionar</option>
+            {timeSlots.map((group) => (
+              <optgroup label={group.label} key={group.label}>
+                {group.slots.map((t) => (
+                  <option key={t} value={t} disabled={isBooked(t)}>
+                    {t}{isBooked(t) ? " — reservado" : ""}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+          <select value={persons} onChange={(e) => setPersons(e.target.value)} required>
+            <option value="">N.º</option>
+            {Array.from({ length: 10 }, (_, i) => (
+              <option key={i + 1} value={i + 1}>{i + 1}</option>
+            ))}
+          </select>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Su nombre"
+            required
+          />
+          <input
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g,"").slice(0,15))}
+            placeholder="600000000"
+            inputMode="numeric"
+            required
+          />
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Comentarios (opcional)"
+            rows={3}
+          />
+          {error && <p className="reservas-error">{error}</p>}
+          <button type="submit" className="btn-gold btn-submit" disabled={allDisabled}>
+            {sending ? "Reservando..." : (time && isBooked(time) ? "No disponible" : "Confirmar reserva")}
           </button>
         </form>
       </div>
@@ -387,161 +507,100 @@ function Newsletter() {
   )
 }
 
-function CartDrawer({ open, onClose, items, onRemove, onUpdateQty }: {
-  open: boolean
-  onClose: () => void
-  items: CartItem[]
-  onRemove: (idx: number) => void
-  onUpdateQty: (idx: number, qty: number) => void
-}) {
-  const total = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0)
+function Location() {
+  const ref = useRef<HTMLElement>(null)
+  const [visible, setVisible] = useState(false)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const observer = new IntersectionObserver(([entry]) => { if (entry.isIntersecting) setVisible(true) }, { threshold: 0.1 })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
 
   return (
-    <>
-      <div className={`cart-overlay ${open ? "open" : ""}`} onClick={onClose} />
-      <div className={`cart-drawer ${open ? "open" : ""}`}>
-        <div className="cart-header">
-          <h2>Carrito ({items.length})</h2>
-          <button className="cart-close" onClick={onClose}>✕</button>
-        </div>
-        {items.length === 0 ? (
-          <div className="cart-empty">
-            <CartIcon />
-            <p>Tu carrito está vacío</p>
+    <section id="contacto" className="section section-card" ref={ref}>
+      <div className={`container ${visible ? "fade-in" : ""}`}>
+        <p className="eyebrow">Ubicación</p>
+        <h2 className="section-title">Encuéntranos</h2>
+        <div className="location-grid">
+          <div className="location-info">
+            <p className="location-label">Dirección</p>
+            <p className="location-value">{RESTAURANT.location}</p>
+            <p className="location-value">{RESTAURANT.addressShort}</p>
+            <p className="location-value">{RESTAURANT.city}</p>
+            <div className="location-buttons">
+              <a href="https://maps.google.com/?q=Luigipizza+San+Juan+de+Aznalfarache" target="_blank" rel="noopener noreferrer" className="btn-gold">Abrir en Maps</a>
+              <a href={`tel:+34${RESTAURANT.phone.replace(/\s/g,"")}`} className="btn-outline">Llamar</a>
+            </div>
+            <div className="location-hours">
+              <p className="location-label">Horario</p>
+              <p className="location-value">{RESTAURANT.hours}</p>
+            </div>
           </div>
-        ) : (
-          <>
-            <div className="cart-items">
-              {items.map((item, i) => (
-                <div key={i} className="cart-item">
-                  <img src={item.product.images[0]} alt={item.product.name} className="cart-item-img" />
-                  <div className="cart-item-info">
-                    <h4>{item.product.name}</h4>
-                    <p className="cart-item-detail">{item.size} / {item.color}</p>
-                    <p className="cart-item-price">{format(item.product.price)}</p>
-                    <div className="cart-qty">
-                      <button onClick={() => onUpdateQty(i, Math.max(1, item.quantity - 1))}>−</button>
-                      <span>{item.quantity}</span>
-                      <button onClick={() => onUpdateQty(i, item.quantity + 1)}>+</button>
-                    </div>
-                  </div>
-                  <button className="cart-item-remove" onClick={() => onRemove(i)}>✕</button>
-                </div>
-              ))}
-            </div>
-            <div className="cart-footer">
-              <div className="cart-total">
-                <span>TOTAL</span>
-                <span>{format(total)}</span>
-              </div>
-              <button className="btn-primary cart-checkout">FINALIZAR PEDIDO</button>
-            </div>
-          </>
-        )}
+          <div className="location-map">
+            <iframe
+              src={RESTAURANT.mapSrc}
+              width="100%"
+              height="100%"
+              style={{border:0, minHeight:"300px"}}
+              allowFullScreen
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              title="Ubicación Luigipizza"
+            />
+          </div>
+        </div>
       </div>
-    </>
+    </section>
   )
 }
 
 function Footer() {
   return (
     <footer className="footer">
-      <div className="footer-inner">
-        <div className="footer-brand">
-          <h3>{BRAND.name}</h3>
-          <p>{BRAND.tagline}</p>
-        </div>
-        <div className="footer-links">
+      <div className="container">
+        <div className="footer-grid">
           <div className="footer-col">
-            <h4>AYUDA</h4>
-            <a href="#">Contacto</a>
-            <a href="#">Envíos</a>
-            <a href="#">Devoluciones</a>
-            <a href="#">FAQ</a>
+            <h3 className="footer-logo">{RESTAURANT.name}</h3>
+            <p className="footer-tagline">{RESTAURANT.tagline}</p>
           </div>
           <div className="footer-col">
-            <h4>COMPAÑÍA</h4>
-            <a href="#">Sobre nosotros</a>
-            <a href="#">Tiendas</a>
-            <a href="#">Trabaja con nosotros</a>
-            <a href="#">Prensa</a>
+            <h4 className="footer-heading">Dirección</h4>
+            <p>{RESTAURANT.address}</p>
+            <p className="footer-phone" onClick={() => window.open(`tel:+34${RESTAURANT.phone.replace(/\s/g,"")}`)}>{RESTAURANT.phone}</p>
           </div>
           <div className="footer-col">
-            <h4>SIGUENOS</h4>
-            <a href="#">Instagram</a>
-            <a href="#">TikTok</a>
-            <a href="#">Twitter</a>
-            <a href="#">YouTube</a>
+            <h4 className="footer-heading">Contacto</h4>
+            <p className="footer-phone" onClick={() => window.open(`tel:+34${RESTAURANT.phone.replace(/\s/g,"")}`)}>📞 {RESTAURANT.phone}</p>
+            <div className="footer-social">
+              <a href="https://tiktok.com/@luigipizza" target="_blank" rel="noopener noreferrer">TikTok</a>
+              <a href="https://instagram.com/luigipizza" target="_blank" rel="noopener noreferrer">Instagram</a>
+            </div>
           </div>
         </div>
-      </div>
-      <div className="footer-bottom">
-        <p>&copy; {new Date().getFullYear()} {BRAND.name}. Todos los derechos reservados.</p>
+        <div className="footer-bottom">
+          <p>&copy; {new Date().getFullYear()} {RESTAURANT.name}. Todos los derechos reservados.</p>
+        </div>
       </div>
     </footer>
   )
 }
 
 export default function App() {
-  const [cart, setCart] = useState<CartItem[]>([])
-  const [cartOpen, setCartOpen] = useState(false)
-
-  const addToCart = useCallback((product: Product, size: string, color: string) => {
-    setCart((prev) => {
-      const idx = prev.findIndex((item) => item.product.id === product.id && item.size === size && item.color === color)
-      if (idx >= 0) {
-        const next = [...prev]
-        next[idx] = { ...next[idx], quantity: next[idx].quantity + 1 }
-        return next
-      }
-      return [...prev, { product, size, color, quantity: 1 }]
-    })
-    setCartOpen(true)
-  }, [])
-
-  const removeFromCart = useCallback((idx: number) => {
-    setCart((prev) => prev.filter((_, i) => i !== idx))
-  }, [])
-
-  const updateQty = useCallback((idx: number, qty: number) => {
-    setCart((prev) => {
-      const next = [...prev]
-      next[idx] = { ...next[idx], quantity: qty }
-      return next
-    })
-  }, [])
-
-  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0)
-
-  const featured = products.filter((p) => p.badge === "BEST SELLER" || p.badge === "NOVEDAD")
-  const hoodies = products.filter((p) => p.category === "Sudaderas")
-  const tees = products.filter((p) => p.category === "Camisetas")
-  const pants = products.filter((p) => p.category === "Pantalones")
-  const accessories = products.filter((p) => p.category === "Accesorios")
-  const carouselItems = [...hoodies, ...tees, ...pants]
-
   return (
     <>
-      <Navbar cartCount={cartCount} onCartOpen={() => setCartOpen(true)} />
+      <Navbar />
       <main>
         <Hero />
-        <Features />
-        <ProductGrid title="NOVEDADES DESTACADAS" products={featured} onAddToCart={addToCart} />
-        <ProductCarousel title="COLECCIÓN COMPLETA" products={carouselItems} onAddToCart={addToCart} />
-        <ProductGrid title="CAMISETAS" products={tees} onAddToCart={addToCart} />
-        <ProductGrid title="PANTALONES" products={pants} onAddToCart={addToCart} />
-        <ProductGrid title="ACCESORIOS" products={accessories} onAddToCart={addToCart} />
+        <About />
+        <Menu />
+        <Gallery />
         <Reviews />
-        <Newsletter />
+        <Reservations />
+        <Location />
       </main>
       <Footer />
-      <CartDrawer
-        open={cartOpen}
-        onClose={() => setCartOpen(false)}
-        items={cart}
-        onRemove={removeFromCart}
-        onUpdateQty={updateQty}
-      />
     </>
   )
 }
