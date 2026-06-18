@@ -40,7 +40,7 @@
 .navbar {
   position: fixed; top: 0; left: 0; right: 0; z-index: 100;
   padding: 0 1.25rem;
-  background: rgba(28,28,28,0.9);
+  background: rgba(250,247,242,0.92);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid transparent;
@@ -68,10 +68,10 @@
 .btn-gold {
   display: inline-flex; align-items: center; justify-content: center;
   padding: 0.6rem 1.5rem; font-size: 0.8rem; font-weight: 500;
-  color: var(--bg); background: var(--gold); border-radius: var(--radius-card);
+  color: #fff; background: var(--accent); border-radius: var(--radius-card);
   border: none; cursor: pointer; transition: background 0.3s, transform 0.2s;
 }
-.btn-gold:hover { background: var(--gold-hover); transform: translateY(-1px); }
+.btn-gold:hover { background: var(--accent-hover); transform: translateY(-1px); }
 .btn-gold:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 .nav-btn-reservar { text-decoration: none; font-size: 0.75rem; padding: 0.5rem 1.25rem; }
 
@@ -103,7 +103,7 @@
   font-weight: 400; text-align: left; color: var(--text);
   border-bottom: 1px solid var(--border);
 }
-.mobile-call { color: var(--gold); font-weight: 500; }
+.mobile-call { color: var(--secondary); font-weight: 500; }
 .mobile-overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,0.6);
   z-index: 150;
@@ -213,7 +213,7 @@
 }
 .feature-card:hover { border-color: var(--gold); }
 .feature-card-title {
-  font-size: 0.85rem; font-weight: 500; color: var(--gold);
+  font-size: 0.85rem; font-weight: 500; color: var(--secondary);
   margin-bottom: 0.25rem;
 }
 .feature-card-desc { font-size: 0.8rem; color: var(--text-muted); line-height: 1.5; }
@@ -332,7 +332,7 @@
 /* ============ REVIEWS ============ */
 .reviews-badge {
   display: inline-block;
-  background: var(--gold); color: var(--bg);
+  background: var(--accent); color: #fff;
   font-size: 0.8rem; font-weight: 600; padding: 0.4rem 1rem;
   border-radius: var(--radius-card);
   margin: 0 auto 2rem; text-align: center; display: table;
@@ -378,7 +378,7 @@
 .reservas-form input::placeholder,
 .reservas-form textarea::placeholder { color: var(--text-muted); }
 .reservas-form select {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239CA3AF' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236B7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
   background-repeat: no-repeat; background-position: right 1rem center;
   padding-right: 2.5rem;
 }
@@ -392,19 +392,19 @@
 /* ============ CONFIRMATION ============ */
 .confirm-icon {
   width: 56px; height: 56px; border-radius: var(--radius-circle);
-  background: var(--gold); color: var(--bg);
+  background: var(--accent); color: #fff;
   display: flex; align-items: center; justify-content: center;
   font-size: 1.5rem; font-weight: 700; margin: 0 auto 1.5rem;
 }
 .confirm-box {
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: var(--bg);
+  border: 1px solid var(--border);
   border-radius: var(--radius-card); padding: 1.5rem;
   margin-bottom: 1.5rem;
 }
 .confirm-row {
   display: flex; justify-content: space-between; padding: 0.6rem 0;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  border-bottom: 1px solid var(--border);
 }
 .confirm-row:last-child { border-bottom: none; }
 .confirm-label { color: var(--gold); font-size: 0.85rem; font-weight: 500; }
@@ -449,13 +449,13 @@
 .footer-phone {
   cursor: pointer; transition: color 0.2s;
 }
-.footer-phone:hover { color: var(--text); }
+.footer-phone:hover { color: var(--secondary); }
 .footer-social { display: flex; gap: 1rem; margin-top: 0.75rem; }
 .footer-social a {
   font-size: 0.85rem; color: var(--text-muted);
   transition: color 0.2s;
 }
-.footer-social a:hover { color: var(--gold); }
+.footer-social a:hover { color: var(--secondary); }
 .footer-bottom {
   padding-top: 1.5rem; border-top: 1px solid var(--border);
   text-align: center;

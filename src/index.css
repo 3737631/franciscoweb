@@ -1,12 +1,20 @@
 :root {
-  --bg: #1C1C1C;
-  --bg-card: #242424;
-  --gold: #D4AF37;
-  --gold-hover: #A88A20;
-  --text: #F5F0EB;
-  --text-muted: #9CA3AF;
-  --olive: #708238;
-  --border: #2E2E2E;
+  --primary: #C62828;
+  --secondary: #2E7D32;
+  --dark: #1F1F1F;
+  --cream: #F5E6C8;
+  --white: #FFFFFF;
+  --light: #F4F4F4;
+
+  --bg: var(--white);
+  --bg-card: var(--cream);
+  --gold: var(--primary);
+  --gold-hover: #A02020;
+  --accent: var(--primary);
+  --accent-hover: #A02020;
+  --text: var(--dark);
+  --text-muted: #6B7280;
+  --border: #E0D8D0;
   --font-display: 'Playfair Display', serif;
   --font-body: 'Inter', sans-serif;
   --radius-card: 8px;
@@ -40,4 +48,4 @@ ul, ol { list-style: none; }
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
-::selection { background: var(--gold); color: var(--bg); }
+::selection { background: var(--accent); color: #fff; }
